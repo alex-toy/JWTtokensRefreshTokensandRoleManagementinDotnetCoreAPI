@@ -12,7 +12,7 @@ namespace YtMovieApis.Controllers
     {
         public IActionResult GetData()
         {
-            var status = new Status();
+            var status = new StatusDto();
             status.StatusCode = 1;
             status.Message = "Data from protected controller";
             return Ok(status);

@@ -1,6 +1,6 @@
 namespace MovieAPI.Models.DTO
 {
-    public class WeatherForecast
+    public class WeatherForecastDto
     {
         public DateTime Date { get; set; }
 

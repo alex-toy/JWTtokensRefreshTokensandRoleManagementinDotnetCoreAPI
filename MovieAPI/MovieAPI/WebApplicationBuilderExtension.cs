@@ -2,10 +2,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MovieAPI.Models.Domain;
+using MovieAPI.Repo;
+using MovieAPI.Services.Tokens;
 using System.Text;
-using YtMovieApis.Models.Domain;
-using YtMovieApis.Repositories.Abstract;
-using YtMovieApis.Repositories.Domain;
 
 namespace MovieAPI
 {

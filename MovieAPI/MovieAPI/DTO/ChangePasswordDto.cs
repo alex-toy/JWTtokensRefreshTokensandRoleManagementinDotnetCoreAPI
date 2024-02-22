@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace YtMovieApis.Models.DTO
+namespace MovieAPI.DTO
 {
-    public class ChangePasswordModel
+    public class ChangePasswordDto
     {
         [Required]
         public string Username { get; set; }

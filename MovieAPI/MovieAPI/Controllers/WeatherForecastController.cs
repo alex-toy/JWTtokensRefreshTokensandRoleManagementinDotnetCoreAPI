@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using MovieAPI.Models.DTO;
 
-namespace YtMovieApis.Controllers
+namespace MovieAPI.Controllers
 {
     [ApiController]
     [Route("[controller]")]
@@ -19,9 +20,9 @@ namespace YtMovieApis.Controllers
         }
 
         [HttpGet]
-        public IEnumerable<WeatherForecast> Get()
+        public IEnumerable<WeatherForecastDto> Get()
         {
-            return Enumerable.Range(1, 5).Select(index => new WeatherForecast
+            return Enumerable.Range(1, 5).Select(index => new WeatherForecastDto
             {
                 Date = DateTime.Now.AddDays(index),
                 TemperatureC = Random.Shared.Next(-20, 55),

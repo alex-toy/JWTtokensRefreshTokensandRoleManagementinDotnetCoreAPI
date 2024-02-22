@@ -1,6 +1,6 @@
-﻿namespace YtMovieApis.Models.DTO
+﻿namespace MovieAPI.DTO
 {
-    public class TokenResponse
+    public class TokenResponseDto
     {
         public string? TokenString { get; set; }
         public DateTime ValidTo { get; set; }

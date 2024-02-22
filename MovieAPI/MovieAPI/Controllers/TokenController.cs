@@ -1,44 +1,41 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MovieAPI.Repo;
-using YtMovieApis.Models.DTO;
-using YtMovieApis.Repositories.Abstract;
-using YtMovieApis.Repositories.Domain;
+using MovieAPI.DTO;
+using MovieAPI.Models.Domain;
+using MovieAPI.Services.Tokens;
+using System.Security.Claims;
 
-namespace YtMovieApis.Controllers
+namespace MovieAPI.Controllers
 {
     [Route("api/[controller]/{action}")]
     [ApiController]
     public class TokenController : ControllerBase
     {
-        private readonly MovieAPI.Repo.DbContext _ctx;
-        private readonly ITokenService _service;
-        public TokenController(MovieAPI.Repo.DbContext ctx,ITokenService service)
-        {
-            this._ctx = ctx;
-            this._service = service;
+        private readonly Repo.DatabaseContext _dbContext;
+        private readonly ITokenService _tokenService;
 
+        public TokenController(Repo.DatabaseContext ctx, ITokenService service)
+        {
+            _dbContext = ctx;
+            _tokenService = service;
         }
 
         [HttpPost]
-        public IActionResult Refresh(RefreshTokenRequest tokenApiModel)
+        public IActionResult Refresh(RefreshTokenRequestDto tokenApiModel)
         {
-            if (tokenApiModel is null)
-                return BadRequest("Invalid client request");
+            if (tokenApiModel is null) return BadRequest("Invalid client request");
             string accessToken = tokenApiModel.AccessToken;
             string refreshToken = tokenApiModel.RefreshToken;
-            var principal = _service.GetPrincipalFromExpiredToken(accessToken);
-            var username = principal.Identity.Name;
-            var user = _ctx.TokenInfo.SingleOrDefault(u => u.Usename == username);
+            ClaimsPrincipal principal = _tokenService.GetPrincipalFromExpiredToken(accessToken);
+            string? username = principal.Identity.Name;
+            TokenInfo? user = _dbContext.TokenInfo.SingleOrDefault(u => u.Usename == username);
             if (user is null || user.RefreshToken != refreshToken || user.RefreshTokenExpiry <= DateTime.Now)
                 return BadRequest("Invalid client request");
-            var newAccessToken = _service.GetToken(principal.Claims);
-            var newRefreshToken = _service.GetRefreshToken();
+            var newAccessToken = _tokenService.GetToken(principal.Claims);
+            var newRefreshToken = _tokenService.GetRefreshToken();
             user.RefreshToken = newRefreshToken;
-            _ctx.SaveChanges();
-            return Ok(new RefreshTokenRequest()
+            _dbContext.SaveChanges();
+            return Ok(new RefreshTokenRequestDto()
             {
                 AccessToken = newAccessToken.TokenString,
                 RefreshToken = newRefreshToken
@@ -46,20 +43,20 @@ namespace YtMovieApis.Controllers
         }
 
         //revoken is use for removing token enntry
-        [HttpPost,Authorize]
+        [HttpPost, Authorize]
         public IActionResult Revoke()
         {
             try
             {
                 var username = User.Identity.Name;
-                var user = _ctx.TokenInfo.SingleOrDefault(u => u.Usename == username);
+                var user = _dbContext.TokenInfo.SingleOrDefault(u => u.Usename == username);
                 if (user is null)
                     return BadRequest();
                 user.RefreshToken = null;
-                _ctx.SaveChanges();
+                _dbContext.SaveChanges();
                 return Ok(true);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 return BadRequest();
             }

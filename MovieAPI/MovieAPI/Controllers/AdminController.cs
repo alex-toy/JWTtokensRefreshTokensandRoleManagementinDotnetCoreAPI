@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using YtMovieApis.Models.DTO;
+using MovieAPI.DTO;
 
 namespace YtMovieApis.Controllers
 {
@@ -12,7 +11,7 @@ namespace YtMovieApis.Controllers
     {
         public IActionResult GetData()
         {
-            var status = new Status();
+            var status = new StatusDto();
             status.StatusCode = 1;
             status.Message = "Data from admin controller";
             return Ok(status);

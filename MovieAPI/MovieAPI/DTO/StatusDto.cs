@@ -1,6 +1,6 @@
-﻿namespace YtMovieApis.Models.DTO
+﻿namespace MovieAPI.DTO
 {
-    public class Status
+    public class StatusDto
     {
         public int StatusCode { get; set; }
         public string? Message { get; set; }

@@ -1,4 +1,4 @@
-﻿namespace YtMovieApis.Models.Domain
+﻿namespace MovieAPI.Models.Domain
 {
     public class TokenInfo
     {

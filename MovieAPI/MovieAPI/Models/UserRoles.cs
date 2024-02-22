@@ -1,4 +1,4 @@
-﻿namespace YtMovieApis.Models
+﻿namespace MovieAPI.Models
 {
     public class UserRoles
     {

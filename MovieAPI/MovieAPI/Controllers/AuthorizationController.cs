@@ -1,12 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using MovieAPI.DTO;
+using MovieAPI.Models;
+using MovieAPI.Models.Domain;
+using MovieAPI.Repo;
+using MovieAPI.Services.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using YtMovieApis.Models;
-using YtMovieApis.Models.Domain;
-using YtMovieApis.Models.DTO;
-using YtMovieApis.Repositories.Abstract;
 
 namespace YtMovieApis.Controllers
 {
@@ -15,25 +15,22 @@ namespace YtMovieApis.Controllers
     public class AuthorizationController : ControllerBase
     {
         private readonly DatabaseContext _context;
-        private readonly UserManager<ApplicationUser> userManager;
-        private readonly RoleManager<IdentityRole> roleManager;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ITokenService _tokenService;
-        public AuthorizationController(DatabaseContext context,
-            UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager,
-            ITokenService tokenService
-            )
+
+        public AuthorizationController(DatabaseContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, ITokenService tokenService)
         {
-            this._context = context;
-            this.userManager = userManager;
-            this.roleManager = roleManager;
-            this._tokenService = tokenService;
+            _context = context;
+            _userManager = userManager;
+            _roleManager = roleManager;
+            _tokenService = tokenService;
         }
 
         [HttpPost]
-        public async Task<IActionResult> ChangePassword(ChangePasswordModel model)
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto model)
         {
-            var status = new Status();
+            var status = new StatusDto();
             // check validations
             if (!ModelState.IsValid)
             {
@@ -42,7 +39,7 @@ namespace YtMovieApis.Controllers
                 return Ok(status);
             }
             // lets find the user
-            var user = await userManager.FindByNameAsync(model.Username);
+            var user = await _userManager.FindByNameAsync(model.Username);
             if(user is null)
             {
                 status.StatusCode = 0;
@@ -50,7 +47,7 @@ namespace YtMovieApis.Controllers
                 return Ok(status);
             }
             // check current password
-            if(!await userManager.CheckPasswordAsync(user, model.CurrentPassword))
+            if(!await _userManager.CheckPasswordAsync(user, model.CurrentPassword))
             {
                 status.StatusCode = 0;
                 status.Message = "invalid current password";
@@ -58,7 +55,7 @@ namespace YtMovieApis.Controllers
             }
 
             // change password here
-            var result = await userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+            var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
             if (!result.Succeeded)
             {
                 status.StatusCode = 0;
@@ -71,12 +68,12 @@ namespace YtMovieApis.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Login([FromBody] LoginModel model)
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto model)
         {
-            var user = await userManager.FindByNameAsync(model.Username);
-            if (user != null && await userManager.CheckPasswordAsync(user, model.Password))
+            var user = await _userManager.FindByNameAsync(model.Username);
+            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
             {
-                var userRoles = await userManager.GetRolesAsync(user);
+                var userRoles = await _userManager.GetRolesAsync(user);
                 var authClaims = new List<Claim>
                 {
                     new Claim(ClaimTypes.Name, user.UserName),
@@ -113,7 +110,7 @@ namespace YtMovieApis.Controllers
                 {
                     return BadRequest(ex.Message);
                 }
-                return Ok(new LoginResponse
+                return Ok(new LoginResponseDto
                 {
                     Name = user.Name,
                     Username = user.UserName,
@@ -128,16 +125,16 @@ namespace YtMovieApis.Controllers
             //login failed condition
 
             return Ok(
-                new LoginResponse {
+                new LoginResponseDto {
                     StatusCode = 0,
                     Message = "Invalid Username or Password",
                     Token = "", Expiration = null });
         }
 
         [HttpPost]
-        public async Task<IActionResult> Registration([FromBody]RegistrationModel model)
+        public async Task<IActionResult> Registration([FromBody]RegistrationDto model)
         {
-            var status = new Status();
+            var status = new StatusDto();
             if (!ModelState.IsValid)
             {
                 status.StatusCode = 0;
@@ -145,7 +142,7 @@ namespace YtMovieApis.Controllers
                 return Ok(status);
             }
             // check if user exists
-            var userExists = await userManager.FindByNameAsync(model.Username);
+            var userExists = await _userManager.FindByNameAsync(model.Username);
             if (userExists!=null)
             {
                 status.StatusCode = 0;
@@ -160,7 +157,7 @@ namespace YtMovieApis.Controllers
                 Name = model.Name
             };
             // create a user here
-            var result= await userManager.CreateAsync(user, model.Password); 
+            var result= await _userManager.CreateAsync(user, model.Password); 
             if(!result.Succeeded)
             {
                 status.StatusCode = 0;
@@ -170,12 +167,12 @@ namespace YtMovieApis.Controllers
 
             // add roles here
             // for admin registration UserRoles.Admin instead of UserRoles.Roles
-            if (!await roleManager.RoleExistsAsync(UserRoles.User))
-                await roleManager.CreateAsync(new IdentityRole(UserRoles.User));
+            if (!await _roleManager.RoleExistsAsync(UserRoles.User))
+                await _roleManager.CreateAsync(new IdentityRole(UserRoles.User));
 
-            if (await roleManager.RoleExistsAsync(UserRoles.User))
+            if (await _roleManager.RoleExistsAsync(UserRoles.User))
             {
-                await userManager.AddToRoleAsync(user, UserRoles.User);
+                await _userManager.AddToRoleAsync(user, UserRoles.User);
             }
             status.StatusCode = 1;
             status.Message = "Sucessfully registered";
@@ -183,55 +180,52 @@ namespace YtMovieApis.Controllers
 
         }
 
-        // after registering admin we will comment this code, because i want only one admin in this application
-        //[HttpPost]
-        //public async Task<IActionResult> RegistrationAdmin([FromBody] RegistrationModel model)
-        //{
-        //    var status = new Status();
-        //    if (!ModelState.IsValid)
-        //    {
-        //        status.StatusCode = 0;
-        //        status.Message = "Please pass all the required fields";
-        //        return Ok(status);
-        //    }
-        //    // check if user exists
-        //    var userExists = await userManager.FindByNameAsync(model.Username);
-        //    if (userExists != null)
-        //    {
-        //        status.StatusCode = 0;
-        //        status.Message = "Invalid username";
-        //        return Ok(status);
-        //    }
-        //    var user = new ApplicationUser
-        //    {
-        //        UserName = model.Username,
-        //        SecurityStamp = Guid.NewGuid().ToString(),
-        //        Email = model.Email,
-        //        Name = model.Name
-        //    };
-        //    // create a user here
-        //    var result = await userManager.CreateAsync(user, model.Password);
-        //    if (!result.Succeeded)
-        //    {
-        //        status.StatusCode = 0;
-        //        status.Message = "User creation failed";
-        //        return Ok(status);
-        //    }
+       [HttpPost]
+        public async Task<IActionResult> RegistrationAdmin([FromBody] RegistrationDto model)
+        {
+            var status = new StatusDto();
+            if (!ModelState.IsValid)
+            {
+                status.StatusCode = 0;
+                status.Message = "Please pass all the required fields";
+                return Ok(status);
+            }
+            // check if user exists
+            var userExists = await _userManager.FindByNameAsync(model.Username);
+            if (userExists != null)
+            {
+                status.StatusCode = 0;
+                status.Message = "Invalid username";
+                return Ok(status);
+            }
+            var user = new ApplicationUser
+            {
+                UserName = model.Username,
+                SecurityStamp = Guid.NewGuid().ToString(),
+                Email = model.Email,
+                Name = model.Name
+            };
+            // create a user here
+            var result = await _userManager.CreateAsync(user, model.Password);
+            if (!result.Succeeded)
+            {
+                status.StatusCode = 0;
+                status.Message = "User creation failed";
+                return Ok(status);
+            }
 
-        //    // add roles here
-        //    // for admin registration UserRoles.Admin instead of UserRoles.Roles
-        //    if (!await roleManager.RoleExistsAsync(UserRoles.Admin))
-        //        await roleManager.CreateAsync(new IdentityRole(UserRoles.Admin));
+            // add roles here
+            // for admin registration UserRoles.Admin instead of UserRoles.Roles
+            if (!await _roleManager.RoleExistsAsync(UserRoles.Admin))
+                await _roleManager.CreateAsync(new IdentityRole(UserRoles.Admin));
 
-        //    if (await roleManager.RoleExistsAsync(UserRoles.Admin))
-        //    {
-        //        await userManager.AddToRoleAsync(user, UserRoles.Admin);
-        //    }
-        //    status.StatusCode = 1;
-        //    status.Message = "Sucessfully registered";
-        //    return Ok(status);
-
-        //}
-        
+            if (await _roleManager.RoleExistsAsync(UserRoles.Admin))
+            {
+                await _userManager.AddToRoleAsync(user, UserRoles.Admin);
+            }
+            status.StatusCode = 1;
+            status.Message = "Sucessfully registered";
+            return Ok(status);
+        }
     }
 }
