@@ -1,4 +1,4 @@
-namespace MovieAPI
+namespace MovieAPI.Models.DTO
 {
     public class WeatherForecast
     {
