@@ -4,6 +4,7 @@ using MovieAPI.DTO;
 using MovieAPI.Models;
 using MovieAPI.Models.Domain;
 using MovieAPI.Repo;
+using MovieAPI.Services.AuthenticationService.Handlers;
 using MovieAPI.Services.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -18,6 +19,7 @@ namespace YtMovieApis.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ITokenService _tokenService;
+        private CheckUsername _checkUsername;
 
         public AuthorizationController(DatabaseContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, ITokenService tokenService)
         {
@@ -25,110 +27,82 @@ namespace YtMovieApis.Controllers
             _userManager = userManager;
             _roleManager = roleManager;
             _tokenService = tokenService;
+
+            SetCheckers();
         }
 
         [HttpPost]
         public async Task<IActionResult> ChangePassword(ChangePasswordDto model)
         {
-            var status = new StatusDto();
-            // check validations
+            StatusDto status = new StatusDto();
+
             if (!ModelState.IsValid)
             {
                 status.StatusCode = 0;
                 status.Message = "please pass all the valid fields";
                 return Ok(status);
             }
-            // lets find the user
-            var user = await _userManager.FindByNameAsync(model.Username);
-            if(user is null)
-            {
-                status.StatusCode = 0;
-                status.Message = "invalid username";
-                return Ok(status);
-            }
-            // check current password
-            if(!await _userManager.CheckPasswordAsync(user, model.CurrentPassword))
-            {
-                status.StatusCode = 0;
-                status.Message = "invalid current password";
-                return Ok(status);
-            }
 
-            // change password here
-            var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
-            if (!result.Succeeded)
-            {
-                status.StatusCode = 0;
-                status.Message = "Failed to change password";
-                return Ok(status);
-            }
-            status.StatusCode = 1;
-            status.Message = "Password has changed successfully";
-            return Ok(result);
+            status = await _checkUsername.HandleAsync(model);
+
+            return Ok(status);
         }
 
         [HttpPost]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto model)
         {
-            var user = await _userManager.FindByNameAsync(model.Username);
-            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
+            ApplicationUser user = await _userManager.FindByNameAsync(model.Username);
+            bool isPasswordCorrect = await _userManager.CheckPasswordAsync(user, model.Password);
+
+            if (user is null || !isPasswordCorrect) return Ok(new LoginResponseDto
             {
-                var userRoles = await _userManager.GetRolesAsync(user);
-                var authClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, user.UserName),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                };
-                foreach (var userRole in userRoles)
-                {
-                    authClaims.Add(new Claim(ClaimTypes.Role, userRole));
-                }
-                var token = _tokenService.GetToken(authClaims);
-                var refreshToken = _tokenService.GetRefreshToken();
-                var tokenInfo = _context.TokenInfo.FirstOrDefault(a => a.Usename == user.UserName);
-                if (tokenInfo == null)
-                {
-                    var info = new TokenInfo
-                    {
-                        Usename = user.UserName,
-                        RefreshToken = refreshToken,
-                        RefreshTokenExpiry = DateTime.Now.AddDays(1)
-                    };
-                    _context.TokenInfo.Add(info);
-                }
+                StatusCode = 0,
+                Message = "Invalid Username or Password",
+                Token = "",
+                Expiration = null
+            });
 
-                else
+            IList<string> userRoles = await _userManager.GetRolesAsync(user);
+            List<Claim> claims = GetClaims(user, userRoles);
+            TokenResponseDto token = _tokenService.GetToken(claims);
+            string refreshToken = _tokenService.GetRefreshToken();
+            TokenInfo? tokenInfo = _context.TokenInfo.FirstOrDefault(a => a.Usename == user.UserName);
+
+            if (tokenInfo == null)
+            {
+                var info = new TokenInfo
                 {
-                    tokenInfo.RefreshToken = refreshToken;
-                    tokenInfo.RefreshTokenExpiry = DateTime.Now.AddDays(1);
-                }
-                try
-                {
-                    _context.SaveChanges();
-                }
-                catch(Exception ex)
-                {
-                    return BadRequest(ex.Message);
-                }
-                return Ok(new LoginResponseDto
-                {
-                    Name = user.Name,
-                    Username = user.UserName,
-                    Token = token.TokenString,
+                    Usename = user.UserName,
                     RefreshToken = refreshToken,
-                    Expiration = token.ValidTo,
-                    StatusCode = 1,
-                    Message = "Logged in"
-                });
-
+                    RefreshTokenExpiry = DateTime.Now.AddDays(1)
+                };
+                _context.TokenInfo.Add(info);
             }
-            //login failed condition
+            else
+            {
+                tokenInfo.RefreshToken = refreshToken;
+                tokenInfo.RefreshTokenExpiry = DateTime.Now.AddDays(1);
+            }
 
-            return Ok(
-                new LoginResponseDto {
-                    StatusCode = 0,
-                    Message = "Invalid Username or Password",
-                    Token = "", Expiration = null });
+            try
+            {
+                _context.SaveChanges();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            return Ok(new LoginResponseDto
+            {
+                Name = user.Name,
+                Username = user.UserName,
+                Token = token.TokenString,
+                RefreshToken = refreshToken,
+                Expiration = token.ValidTo,
+                StatusCode = 1,
+                Message = "Logged in"
+            });
         }
 
         [HttpPost]
@@ -141,7 +115,7 @@ namespace YtMovieApis.Controllers
                 status.Message = "Please pass all the required fields";
                 return Ok(status);
             }
-            // check if user exists
+
             var userExists = await _userManager.FindByNameAsync(model.Username);
             if (userExists!=null)
             {
@@ -149,6 +123,7 @@ namespace YtMovieApis.Controllers
                 status.Message = "Invalid username";
                 return Ok(status);
             }
+
             var user = new ApplicationUser
             {
                 UserName = model.Username,
@@ -156,7 +131,7 @@ namespace YtMovieApis.Controllers
                 Email = model.Email,
                 Name = model.Name
             };
-            // create a user here
+
             var result= await _userManager.CreateAsync(user, model.Password); 
             if(!result.Succeeded)
             {
@@ -165,8 +140,6 @@ namespace YtMovieApis.Controllers
                 return Ok(status);
             }
 
-            // add roles here
-            // for admin registration UserRoles.Admin instead of UserRoles.Roles
             if (!await _roleManager.RoleExistsAsync(UserRoles.User))
                 await _roleManager.CreateAsync(new IdentityRole(UserRoles.User));
 
@@ -177,7 +150,6 @@ namespace YtMovieApis.Controllers
             status.StatusCode = 1;
             status.Message = "Sucessfully registered";
             return Ok(status);
-
         }
 
        [HttpPost]
@@ -190,7 +162,7 @@ namespace YtMovieApis.Controllers
                 status.Message = "Please pass all the required fields";
                 return Ok(status);
             }
-            // check if user exists
+
             var userExists = await _userManager.FindByNameAsync(model.Username);
             if (userExists != null)
             {
@@ -198,6 +170,7 @@ namespace YtMovieApis.Controllers
                 status.Message = "Invalid username";
                 return Ok(status);
             }
+
             var user = new ApplicationUser
             {
                 UserName = model.Username,
@@ -205,7 +178,7 @@ namespace YtMovieApis.Controllers
                 Email = model.Email,
                 Name = model.Name
             };
-            // create a user here
+
             var result = await _userManager.CreateAsync(user, model.Password);
             if (!result.Succeeded)
             {
@@ -214,8 +187,6 @@ namespace YtMovieApis.Controllers
                 return Ok(status);
             }
 
-            // add roles here
-            // for admin registration UserRoles.Admin instead of UserRoles.Roles
             if (!await _roleManager.RoleExistsAsync(UserRoles.Admin))
                 await _roleManager.CreateAsync(new IdentityRole(UserRoles.Admin));
 
@@ -226,6 +197,27 @@ namespace YtMovieApis.Controllers
             status.StatusCode = 1;
             status.Message = "Sucessfully registered";
             return Ok(status);
+        }
+
+        private void SetCheckers()
+        {
+            _checkUsername = new CheckUsername() { _userManager = _userManager };
+            var checkPassword = new CheckPassword() { _userManager = _userManager };
+            var changePassword = new ChangePassword() { _userManager = _userManager };
+            _checkUsername
+                .SetNext(checkPassword)
+                .SetNext(changePassword);
+        }
+
+        private static List<Claim> GetClaims(ApplicationUser user, IList<string> userRoles)
+        {
+            var authClaims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, user.UserName),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            };
+            authClaims.AddRange(userRoles.Select(ur => new Claim(ClaimTypes.Role, ur)));
+            return authClaims;
         }
     }
 }

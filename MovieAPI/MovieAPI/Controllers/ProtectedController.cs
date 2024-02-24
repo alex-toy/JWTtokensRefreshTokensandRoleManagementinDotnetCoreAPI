@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using YtMovieApis.Models.DTO;
+using MovieAPI.DTO;
 
 namespace YtMovieApis.Controllers
 {
