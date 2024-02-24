@@ -6,6 +6,7 @@ builder.Services.AddControllers();
 builder.ConfigureDbContext();
 builder.ConfigureIdentity();
 builder.ConfigureAuthentication();
+builder.ConfigureJwtBearer();
 builder.ConfigureServices();
 
 
