@@ -4,7 +4,7 @@ using MovieAPI.DTO;
 using MovieAPI.Models;
 using MovieAPI.Models.Domain;
 using MovieAPI.Repo;
-using MovieAPI.Services.AuthenticationService.Handlers;
+using MovieAPI.Services.ChangePasswordService;
 using MovieAPI.Services.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -19,7 +19,7 @@ namespace YtMovieApis.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ITokenService _tokenService;
-        private CheckUsername _checkUsername;
+        private CheckUsername _changePasswordHandlers;
 
         public AuthorizationController(DatabaseContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager, ITokenService tokenService)
         {
@@ -32,7 +32,7 @@ namespace YtMovieApis.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> ChangePassword(ChangePasswordDto model)
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto passwordDto)
         {
             StatusDto status = new StatusDto();
 
@@ -43,7 +43,7 @@ namespace YtMovieApis.Controllers
                 return Ok(status);
             }
 
-            status = await _checkUsername.HandleAsync(model);
+            status = await _changePasswordHandlers.HandleAsync(passwordDto);
 
             return Ok(status);
         }
@@ -153,7 +153,7 @@ namespace YtMovieApis.Controllers
         }
 
        [HttpPost]
-        public async Task<IActionResult> RegistrationAdmin([FromBody] RegistrationDto model)
+        public async Task<IActionResult> RegisterAdmin([FromBody] RegistrationDto model)
         {
             var status = new StatusDto();
             if (!ModelState.IsValid)
@@ -201,10 +201,10 @@ namespace YtMovieApis.Controllers
 
         private void SetCheckers()
         {
-            _checkUsername = new CheckUsername() { _userManager = _userManager };
+            _changePasswordHandlers = new CheckUsername() { _userManager = _userManager };
             var checkPassword = new CheckPassword() { _userManager = _userManager };
             var changePassword = new ChangePassword() { _userManager = _userManager };
-            _checkUsername
+            _changePasswordHandlers
                 .SetNext(checkPassword)
                 .SetNext(changePassword);
         }

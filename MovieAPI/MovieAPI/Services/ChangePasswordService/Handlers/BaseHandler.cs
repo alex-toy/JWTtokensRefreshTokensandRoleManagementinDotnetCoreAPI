@@ -1,6 +1,7 @@
 ﻿using MovieAPI.DTO;
+using MovieAPI.Services.AuthenticationService.Handlers;
 
-namespace MovieAPI.Services.AuthenticationService.Handlers
+namespace MovieAPI.Services.ChangePasswordService.Handlers
 {
     public abstract class BaseHandler<Req> : IHandler<Req> where Req : class
     {

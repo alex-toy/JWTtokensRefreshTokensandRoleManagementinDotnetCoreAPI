@@ -1,10 +1,11 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using MovieAPI.DTO;
 using MovieAPI.Models.Domain;
+using MovieAPI.Services.ChangePasswordService.Handlers;
 
-namespace MovieAPI.Services.AuthenticationService.Handlers
+namespace MovieAPI.Services.ChangePasswordService
 {
-    public class CheckPassword : BaseHandler<ChangePasswordDto>
+    public class CheckUsername : BaseHandler<ChangePasswordDto>
     {
         public UserManager<ApplicationUser> _userManager { private get; set; }
 
@@ -13,11 +14,10 @@ namespace MovieAPI.Services.AuthenticationService.Handlers
             StatusDto status = new StatusDto();
             ApplicationUser? user = await _userManager.FindByNameAsync(request.Username);
 
-            bool isCorrectPassword = await _userManager.CheckPasswordAsync(user, request.CurrentPassword);
-            if (!isCorrectPassword)
+            if (user is null)
             {
                 status.StatusCode = 0;
-                status.Message = "invalid current password";
+                status.Message = "invalid username";
                 return status;
             }
 

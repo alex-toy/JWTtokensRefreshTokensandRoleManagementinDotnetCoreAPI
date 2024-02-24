@@ -11,6 +11,14 @@ Microsoft.AspNetCore.Identity.EntityFrameworkCore
 Microsoft.AspNetCore.Authentication.JwtBearer
 ```
 
-- run the Identity, API and Web. Then go to login 
-<img src="/pictures/identity_server2.png" title="identity server"  width="900">
+## Run the App
+
+- register admin
+<img src="/pictures/register_admin.png" title="register admin"  width="900">
+
+- register user
+<img src="/pictures/register_user.png" title="register user"  width="900">
+
+- login as user
+<img src="/pictures/login_user.png" title="login user"  width="900">
 

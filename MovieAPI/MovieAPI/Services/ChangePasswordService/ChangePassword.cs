@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using MovieAPI.DTO;
 using MovieAPI.Models.Domain;
+using MovieAPI.Services.ChangePasswordService.Handlers;
 
-namespace MovieAPI.Services.AuthenticationService.Handlers
+namespace MovieAPI.Services.ChangePasswordService
 {
     public class ChangePassword : BaseHandler<ChangePasswordDto>
     {
